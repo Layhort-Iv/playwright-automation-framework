@@ -382,6 +382,7 @@ Pre-configured GitHub Actions workflows in `.github/workflows/`:
 
 ## 13. Troubleshooting & Documentation Links
 
+- [New QA Test Creation User Flow](docs/qa-test-creation-flow.md)
 - [Architecture Guide & Design Decisions](docs/architecture.md)
 - [Engineering Contribution Guide](docs/contributing.md)
 - [Troubleshooting & Triage Guide](docs/troubleshooting.md)
