@@ -1,0 +1,27 @@
+{
+  "users": {
+    "standard": {
+      "username": "standard_user",
+      "name": "Standard User",
+      "expectedItemsCount": 6
+    },
+    "lockedOut": {
+      "username": "locked_out_user",
+      "expectedError": "Epic sadface: Sorry, this user has been locked out."
+    },
+    "problemUser": {
+      "username": "problem_user"
+    }
+  },
+  "inventory": {
+    "defaultSort": "az",
+    "itemNames": [
+      "Sauce Labs Backpack",
+      "Sauce Labs Bike Light",
+      "Sauce Labs Bolt T-Shirt",
+      "Sauce Labs Fleece Jacket",
+      "Sauce Labs Onesie",
+      "Test.allTheThings() T-Shirt (Red)"
+    ]
+  }
+}

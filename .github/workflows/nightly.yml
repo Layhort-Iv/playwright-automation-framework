@@ -1,0 +1,99 @@
+name: Nightly Sharded Regression Suite
+
+on:
+  schedule:
+    # Runs at 02:00 AM UTC every day
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target Execution Environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - dev
+          - qa
+          - uat
+          - staging
+
+jobs:
+  sharded-execution:
+    name: Sharded Suite (${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: Run Sharded Tests
+        env:
+          TEST_ENV: ${{ github.event.inputs.environment || 'staging' }}
+          CI: true
+        run: npx playwright test --shard=${{ matrix.shard }}/4
+
+      - name: Upload Shard Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shard-${{ matrix.shard }}-results
+          path: |
+            reports/allure-results/
+            test-results/
+            logs/
+          retention-days: 7
+
+  aggregate-nightly-report:
+    name: Aggregate Shard Results & Report
+    needs: sharded-execution
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Download All Shard Results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: shard-*-results
+          path: all-shards
+
+      - name: Merge Allure Results
+        run: |
+          mkdir -p reports/allure-results
+          find all-shards -name "*result.json" -exec cp {} reports/allure-results/ \; || true
+          find all-shards -name "*container.json" -exec cp {} reports/allure-results/ \; || true
+          find all-shards -name "*attachment.*" -exec cp {} reports/allure-results/ \; || true
+
+      - name: Generate Consolidated Allure Report
+        run: npm run report:allure:generate
+
+      - name: Archive Nightly Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-allure-report
+          path: reports/allure-report/
+          retention-days: 30

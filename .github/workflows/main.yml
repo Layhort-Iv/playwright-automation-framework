@@ -1,0 +1,91 @@
+name: Main Branch Regression & Deployment
+
+on:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  full-regression:
+    name: Regression Matrix (${{ matrix.project }} - ${{ matrix.env }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, firefox, webkit, api]
+        env: [qa]
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: Run Playwright Test Suite
+        env:
+          TEST_ENV: ${{ matrix.env }}
+          CI: true
+        run: npx playwright test --project=${{ matrix.project }}
+
+      - name: Upload Matrix Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-results-${{ matrix.project }}
+          path: |
+            reports/playwright-html/
+            reports/allure-results/
+            test-results/
+            logs/
+          retention-days: 14
+
+  publish-report:
+    name: Generate & Publish Aggregated Allure Report
+    needs: full-regression
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Download Allure Results Matrix
+        uses: actions/download-artifact@v4
+        with:
+          pattern: regression-results-*
+          path: downloaded-artifacts
+
+      - name: Consolidate Allure Results
+        run: |
+          mkdir -p reports/allure-results
+          find downloaded-artifacts -type f -name "*.json" -exec cp {} reports/allure-results/ \; || true
+
+      - name: Generate Allure Report
+        run: npm run report:allure:generate
+
+      - name: Upload Consolidated Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: consolidated-allure-report
+          path: reports/allure-report/
+          retention-days: 30
